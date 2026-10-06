@@ -1,0 +1,5 @@
+dist
+coverage
+.env
+.env.local
+*.tsbuildinfo
