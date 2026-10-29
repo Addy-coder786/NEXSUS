@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useMatch } from 'react-router-dom';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Maximize2, MessageSquarePlus, Sparkles, X } from 'lucide-react';
 import type { AiScope } from '@nexus/shared';
 import { useAiEnabled } from '../hooks';
-import { AssistantChat } from './AssistantChat';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// The chat (and its Markdown renderer) loads when the panel is first opened.
+const AssistantChat = lazy(() =>
+  import('./AssistantChat').then((m) => ({ default: m.AssistantChat })),
+);
 import { useCurrentWorkspaceId } from '@/features/workspaces/hooks';
 
 /** Scope of a new side-panel conversation from the current route: document > project > workspace. */
@@ -88,13 +93,15 @@ export function AssistantLauncher() {
             </div>
           </div>
           <div className="min-h-0 flex-1">
-            <AssistantChat
-              compact
-              workspaceId={workspaceId}
-              conversationId={conversationId}
-              scope={scope}
-              onConversationCreated={setConversationId}
-            />
+            <Suspense fallback={<Skeleton className="m-3 h-24" />}>
+              <AssistantChat
+                compact
+                workspaceId={workspaceId}
+                conversationId={conversationId}
+                scope={scope}
+                onConversationCreated={setConversationId}
+              />
+            </Suspense>
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

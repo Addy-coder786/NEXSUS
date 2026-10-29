@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import { createBrowserRouter, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { RequireAnon, RequireAuth, RequireWorkspace, RootRedirect } from './guards';
 import { AppShell } from '@/components/layout/AppShell';
@@ -12,28 +13,16 @@ import { OAuthCallbackPage } from '@/features/auth/pages/OAuthCallbackPage';
 import { AcceptInvitePage } from '@/features/workspaces/pages/AcceptInvitePage';
 import { OnboardingPage } from '@/features/workspaces/pages/OnboardingPage';
 import { WorkspaceDashboardPage } from '@/features/workspaces/pages/WorkspaceDashboardPage';
-import { MembersPage } from '@/features/workspaces/pages/MembersPage';
-import { WorkspaceSettingsPage } from '@/features/workspaces/pages/WorkspaceSettingsPage';
 import { ProjectLayout } from '@/features/projects/pages/ProjectLayout';
 import { ProjectBoardPage } from '@/features/projects/pages/ProjectBoardPage';
-import { ProjectListPage } from '@/features/projects/pages/ProjectListPage';
-import { ProjectActivityPage } from '@/features/projects/pages/ProjectActivityPage';
-import { ProjectSettingsPage } from '@/features/projects/pages/ProjectSettingsPage';
-import { ProfileSettingsPage } from '@/features/users/pages/ProfileSettingsPage';
-import { ChatPage } from '@/features/chat/pages/ChatPage';
-import { ProjectChatPage } from '@/features/chat/pages/ProjectChatPage';
-import { NotificationsPage } from '@/features/notifications/pages/NotificationsPage';
-import { DocumentsPage } from '@/features/documents/pages/DocumentsPage';
-import { DocumentPage } from '@/features/documents/pages/DocumentPage';
-import { ProjectDocsPage } from '@/features/documents/pages/ProjectDocsPage';
-import { FilesPage } from '@/features/files/pages/FilesPage';
-import { ProjectFilesPage } from '@/features/files/pages/ProjectFilesPage';
-import { SearchPage } from '@/features/search/pages/SearchPage';
-import { WorkspaceAnalyticsPage } from '@/features/analytics/pages/WorkspaceAnalyticsPage';
-import { ProjectAnalyticsPage } from '@/features/analytics/pages/ProjectAnalyticsPage';
-import { AssistantPage } from '@/features/ai/pages/AssistantPage';
-import { MeetingsPage } from '@/features/meetings/pages/MeetingsPage';
-import { MeetingPage } from '@/features/meetings/pages/MeetingPage';
+
+/**
+ * Route-level code splitting: a page module is fetched on first navigation to it. The router
+ * keeps the current screen until it has loaded, so no Suspense boundary is needed.
+ */
+function page<K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) {
+  return () => load().then((m) => ({ Component: m[name] }));
+}
 
 /** `/w/:ws/projects/:p/tasks/:taskId` → board with the drawer open via `?task=`. */
 function TaskRedirect() {
@@ -73,39 +62,153 @@ export const router = createBrowserRouter([
           {
             element: <AppShell />,
             children: [
-              { path: '/settings/profile', element: <ProfileSettingsPage /> },
-              { path: '/notifications', element: <NotificationsPage /> },
+              {
+                path: '/settings/profile',
+                lazy: page(
+                  () => import('@/features/users/pages/ProfileSettingsPage'),
+                  'ProfileSettingsPage',
+                ),
+              },
+              {
+                path: '/notifications',
+                lazy: page(
+                  () => import('@/features/notifications/pages/NotificationsPage'),
+                  'NotificationsPage',
+                ),
+              },
               {
                 path: '/w/:workspaceId',
                 element: <RequireWorkspace />,
                 children: [
                   { index: true, element: <WorkspaceDashboardPage /> },
-                  { path: 'members', element: <MembersPage /> },
-                  { path: 'settings', element: <WorkspaceSettingsPage /> },
-                  { path: 'chat', element: <ChatPage /> },
-                  { path: 'chat/:channelId', element: <ChatPage /> },
-                  { path: 'docs', element: <DocumentsPage /> },
-                  { path: 'docs/:documentId', element: <DocumentPage /> },
-                  { path: 'files', element: <FilesPage /> },
-                  { path: 'search', element: <SearchPage /> },
-                  { path: 'analytics', element: <WorkspaceAnalyticsPage /> },
-                  { path: 'assistant', element: <AssistantPage /> },
-                  { path: 'assistant/:conversationId', element: <AssistantPage /> },
-                  { path: 'meetings', element: <MeetingsPage /> },
-                  { path: 'meetings/:meetingId', element: <MeetingPage /> },
+                  {
+                    path: 'members',
+                    lazy: page(
+                      () => import('@/features/workspaces/pages/MembersPage'),
+                      'MembersPage',
+                    ),
+                  },
+                  {
+                    path: 'settings',
+                    lazy: page(
+                      () => import('@/features/workspaces/pages/WorkspaceSettingsPage'),
+                      'WorkspaceSettingsPage',
+                    ),
+                  },
+                  {
+                    path: 'chat',
+                    lazy: page(() => import('@/features/chat/pages/ChatPage'), 'ChatPage'),
+                  },
+                  {
+                    path: 'chat/:channelId',
+                    lazy: page(() => import('@/features/chat/pages/ChatPage'), 'ChatPage'),
+                  },
+                  {
+                    path: 'docs',
+                    lazy: page(
+                      () => import('@/features/documents/pages/DocumentsPage'),
+                      'DocumentsPage',
+                    ),
+                  },
+                  {
+                    path: 'docs/:documentId',
+                    lazy: page(
+                      () => import('@/features/documents/pages/DocumentPage'),
+                      'DocumentPage',
+                    ),
+                  },
+                  {
+                    path: 'files',
+                    lazy: page(() => import('@/features/files/pages/FilesPage'), 'FilesPage'),
+                  },
+                  {
+                    path: 'search',
+                    lazy: page(() => import('@/features/search/pages/SearchPage'), 'SearchPage'),
+                  },
+                  {
+                    path: 'analytics',
+                    lazy: page(
+                      () => import('@/features/analytics/pages/WorkspaceAnalyticsPage'),
+                      'WorkspaceAnalyticsPage',
+                    ),
+                  },
+                  {
+                    path: 'assistant',
+                    lazy: page(() => import('@/features/ai/pages/AssistantPage'), 'AssistantPage'),
+                  },
+                  {
+                    path: 'assistant/:conversationId',
+                    lazy: page(() => import('@/features/ai/pages/AssistantPage'), 'AssistantPage'),
+                  },
+                  {
+                    path: 'meetings',
+                    lazy: page(
+                      () => import('@/features/meetings/pages/MeetingsPage'),
+                      'MeetingsPage',
+                    ),
+                  },
+                  {
+                    path: 'meetings/:meetingId',
+                    lazy: page(
+                      () => import('@/features/meetings/pages/MeetingPage'),
+                      'MeetingPage',
+                    ),
+                  },
                   {
                     path: 'projects/:projectId',
                     element: <ProjectLayout />,
                     children: [
                       { index: true, element: <Navigate to="board" replace /> },
                       { path: 'board', element: <ProjectBoardPage /> },
-                      { path: 'list', element: <ProjectListPage /> },
-                      { path: 'chat', element: <ProjectChatPage /> },
-                      { path: 'docs', element: <ProjectDocsPage /> },
-                      { path: 'files', element: <ProjectFilesPage /> },
-                      { path: 'analytics', element: <ProjectAnalyticsPage /> },
-                      { path: 'activity', element: <ProjectActivityPage /> },
-                      { path: 'settings', element: <ProjectSettingsPage /> },
+                      {
+                        path: 'list',
+                        lazy: page(
+                          () => import('@/features/projects/pages/ProjectListPage'),
+                          'ProjectListPage',
+                        ),
+                      },
+                      {
+                        path: 'chat',
+                        lazy: page(
+                          () => import('@/features/chat/pages/ProjectChatPage'),
+                          'ProjectChatPage',
+                        ),
+                      },
+                      {
+                        path: 'docs',
+                        lazy: page(
+                          () => import('@/features/documents/pages/ProjectDocsPage'),
+                          'ProjectDocsPage',
+                        ),
+                      },
+                      {
+                        path: 'files',
+                        lazy: page(
+                          () => import('@/features/files/pages/ProjectFilesPage'),
+                          'ProjectFilesPage',
+                        ),
+                      },
+                      {
+                        path: 'analytics',
+                        lazy: page(
+                          () => import('@/features/analytics/pages/ProjectAnalyticsPage'),
+                          'ProjectAnalyticsPage',
+                        ),
+                      },
+                      {
+                        path: 'activity',
+                        lazy: page(
+                          () => import('@/features/projects/pages/ProjectActivityPage'),
+                          'ProjectActivityPage',
+                        ),
+                      },
+                      {
+                        path: 'settings',
+                        lazy: page(
+                          () => import('@/features/projects/pages/ProjectSettingsPage'),
+                          'ProjectSettingsPage',
+                        ),
+                      },
                       { path: 'tasks/:taskId', element: <TaskRedirect /> },
                     ],
                   },
