@@ -3,6 +3,7 @@ import type {
   AiConversationDto,
   AiScope,
   AiStatusDto,
+  AiUsageDto,
   CommitGeneratedTasksInput,
   CreateConversationInput,
   DocumentSummaryResultDto,
@@ -55,6 +56,8 @@ export const aiApi = {
     ),
   digest: (workspaceId: string, days = 7) =>
     api.get<WorkspaceDigestDto>(`/ai/workspaces/${workspaceId}/digest`, { days }),
+  usage: (workspaceId: string, days = 30) =>
+    api.get<AiUsageDto>(`/ai/workspaces/${workspaceId}/usage`, { days }),
   reindex: (workspaceId: string) =>
     api.post<{ queued: boolean }>(`/ai/workspaces/${workspaceId}/reindex`),
 };

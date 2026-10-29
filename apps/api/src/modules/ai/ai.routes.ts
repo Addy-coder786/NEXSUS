@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  aiUsageQuerySchema,
   commitGeneratedTasksSchema,
   conversationListQuerySchema,
   createConversationSchema,
@@ -46,6 +47,12 @@ aiRoutes.get(
   validate({ params: idParamSchema, query: controller.digestQuerySchema }),
   requireWorkspacePermission('ai:use'),
   controller.workspaceDigest,
+);
+aiRoutes.get(
+  '/workspaces/:id/usage',
+  validate({ params: idParamSchema, query: aiUsageQuerySchema }),
+  requireWorkspacePermission('workspace:update'), // OWNER/ADMIN
+  controller.usage,
 );
 aiRoutes.post(
   '/workspaces/:id/reindex',

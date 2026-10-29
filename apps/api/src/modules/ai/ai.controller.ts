@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type {
-  summarizeSchema} from '@nexus/shared';
+import type { summarizeSchema } from '@nexus/shared';
 import {
+  aiUsageQuerySchema,
   conversationListQuerySchema,
   hasPermission,
   type AiStatusDto,
@@ -24,6 +24,7 @@ import { assertAiEnabled, consumeAiQuota } from './ai.client';
 import * as assistant from './assistant.service';
 import * as insights from './insights.service';
 import * as taskgen from './taskgen.service';
+import { workspaceUsage } from './usage.service';
 
 export const insightQuerySchema = z.object({ refresh: z.enum(['true', 'false']).optional() });
 export const digestQuerySchema = z.object({ days: z.coerce.number().int().min(1).max(30).default(7) });
@@ -152,6 +153,12 @@ export const workspaceDigest = asyncHandler(async (req, res) => {
   const ws = getWorkspaceContext(req);
   const { days } = typedQuery(req, digestQuerySchema);
   ok(res, await insights.workspaceDigest(ws.id, user.id, ws.role, days));
+});
+
+export const usage = asyncHandler(async (req, res) => {
+  const ws = getWorkspaceContext(req);
+  const { days } = typedQuery(req, aiUsageQuerySchema);
+  ok(res, await workspaceUsage(ws.id, days));
 });
 
 export const reindexWorkspace = asyncHandler(async (req, res) => {

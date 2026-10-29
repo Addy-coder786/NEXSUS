@@ -253,3 +253,27 @@ export interface WorkspaceDigestDto {
   atRiskProjects: { projectId: string; name: string; reason: string }[];
   generatedAt: string;
 }
+
+// ---------- usage (OWNER/ADMIN) ----------
+
+export const aiUsageQuerySchema = z.object({ days: z.coerce.number().int().min(1).max(90).default(30) });
+
+export interface AiUsageTotals {
+  /** Model calls (an assistant turn with tool use makes several). */
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
+
+export interface AiUsageDto {
+  workspaceId: string;
+  periodDays: number;
+  totals: AiUsageTotals;
+  byFeature: (AiUsageTotals & { feature: string })[];
+  /** UTC days, oldest first, including days without usage */
+  byDay: { date: string; calls: number; inputTokens: number; outputTokens: number }[];
+  /** Requests counted against today's limit (assistant turns, generations, analyses...) */
+  quota: { limit: number; usedToday: number };
+}

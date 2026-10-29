@@ -478,3 +478,21 @@ describe('reindex', () => {
     expect((await api().post(`/api/ai/workspaces/${f.ws.id}/reindex`).set('Cookie', f.owner.cookie)).status).toBe(202);
   });
 });
+
+describe('AI usage', () => {
+  it('aggregates logged calls per feature and day for OWNER/ADMIN only', async () => {
+    const f = await fixture();
+    fake.reply(json({ summary: 'S', keyPoints: [], actionItems: [] }));
+    const docRes = await api().post(`/api/workspaces/${f.ws.id}/documents`).set('Cookie', f.owner.cookie).send({ title: 'Doc', content: richDoc('Some text here.') });
+    await api().post(`/api/ai/documents/${docRes.body.data.id}/summarize`).set('Cookie', f.owner.cookie).send({});
+
+    expect((await api().get(`/api/ai/workspaces/${f.ws.id}/usage`).set('Cookie', f.member.cookie)).status).toBe(403);
+    const res = await api().get(`/api/ai/workspaces/${f.ws.id}/usage?days=7`).set('Cookie', f.owner.cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.data.totals).toEqual({ calls: 1, inputTokens: 100, outputTokens: 20, cacheReadTokens: 50, cacheWriteTokens: 0 });
+    expect(res.body.data.byFeature).toEqual([expect.objectContaining({ feature: 'document_summary', calls: 1 })]);
+    expect(res.body.data.byDay).toHaveLength(7);
+    expect(res.body.data.byDay[6]).toMatchObject({ date: new Date().toISOString().slice(0, 10), calls: 1 });
+    expect(res.body.data.quota).toEqual({ limit: 500, usedToday: 1 });
+  });
+});

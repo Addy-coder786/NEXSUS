@@ -62,6 +62,11 @@ export async function consumeAiQuota(workspaceId: string): Promise<void> {
   await cache.set(key, used + 1, 26 * 60 * 60);
 }
 
+/** Requests counted against today's limit for the workspace. */
+export async function aiQuotaUsedToday(workspaceId: string): Promise<number> {
+  return (await cache.get<number>(quotaKey(workspaceId))) ?? 0;
+}
+
 // ---------- usage & errors ----------
 
 export interface AiCallContext {

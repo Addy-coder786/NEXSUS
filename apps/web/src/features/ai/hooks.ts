@@ -24,6 +24,8 @@ export const aiKeys = {
   summary: (documentId: string, version: number, length: string) =>
     [...aiKeys.all, 'summary', documentId, version, length] as const,
   insights: (projectId: string) => [...aiKeys.all, 'insights', projectId] as const,
+  usage: (workspaceId: string, days: number) =>
+    [...aiKeys.all, 'usage', workspaceId, days] as const,
   digest: (workspaceId: string, days: number) =>
     [...aiKeys.all, 'digest', workspaceId, days] as const,
 };
@@ -269,4 +271,16 @@ export function useWorkspaceDigest(workspaceId: string | undefined, days = 7, en
     staleTime: 30 * 60_000,
     retry: false,
   });
+}
+
+export function useAiUsage(workspaceId: string | undefined, days = 30, enabled = true) {
+  return useQuery({
+    queryKey: aiKeys.usage(workspaceId ?? '', days),
+    queryFn: () => aiApi.usage(workspaceId as string, days),
+    enabled: Boolean(workspaceId) && enabled,
+  });
+}
+
+export function useReindexWorkspace(workspaceId: string) {
+  return useMutation({ mutationFn: () => aiApi.reindex(workspaceId) });
 }

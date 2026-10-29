@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AiSettingsPanel } from '@/features/ai/components/AiSettingsPanel';
 import { FormField } from '@/components/common/FormField';
 import { SlackIntegrationCard } from '@/features/integrations/components/SlackIntegrationCard';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -31,7 +32,12 @@ export function WorkspaceSettingsPage() {
   const canManageIntegrations = can('integration:manage');
   const [params, setParams] = useSearchParams();
   const requestedTab = params.get('tab');
-  const tab = requestedTab === 'integrations' && canManageIntegrations ? 'integrations' : 'general';
+  const tab =
+    requestedTab === 'integrations' && canManageIntegrations
+      ? 'integrations'
+      : requestedTab === 'ai' && canUpdate
+        ? 'ai'
+        : 'general';
   const setTab = (next: string) =>
     setParams(
       (prev) => {
@@ -51,6 +57,7 @@ export function WorkspaceSettingsPage() {
           <TabsList aria-label="Settings sections">
             <TabsTrigger value="general">General</TabsTrigger>
             {canManageIntegrations ? <TabsTrigger value="integrations">Integrations</TabsTrigger> : null}
+            {canUpdate ? <TabsTrigger value="ai">AI</TabsTrigger> : null}
           </TabsList>
           <TabsContent value="general" className="mt-4 space-y-6">
             {workspace.data ? (
@@ -73,6 +80,11 @@ export function WorkspaceSettingsPage() {
           {canManageIntegrations ? (
             <TabsContent value="integrations" className="mt-4 space-y-6">
               <SlackIntegrationCard workspaceId={workspaceId} />
+            </TabsContent>
+          ) : null}
+          {canUpdate ? (
+            <TabsContent value="ai" className="mt-4 space-y-6">
+              <AiSettingsPanel workspaceId={workspaceId} />
             </TabsContent>
           ) : null}
         </Tabs>
