@@ -11,11 +11,13 @@ import { Meeting } from '../../models/Meeting';
 import { Message } from '../../models/Message';
 import { Project } from '../../models/Project';
 import { Task } from '../../models/Task';
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { readStoredFile } from '../../services/storage';
 import { links } from '../ai/links';
 import { makeSnippet, search } from '../search/search.service';
 import { chunkText, contentHash, estimateTokens } from './chunking';
 import { cosine, embed } from './embeddings';
+import { VECTOR_INDEX_NAME } from './vectorIndex';
 
 // ---------- building chunks per source ----------
 
@@ -28,8 +30,13 @@ interface SourceContent {
 }
 
 const MIN_MESSAGE_CHARS = 20;
-const MAX_FILE_BYTES = 1024 * 1024;
+const MAX_TEXT_FILE_BYTES = 1024 * 1024;
+const MAX_PDF_BYTES = 25 * 1024 * 1024;
+const MAX_PDF_PAGES = 300;
+/** Upper bound on extracted text per file (about 125 chunks). */
+const MAX_FILE_TEXT_CHARS = 400_000;
 const TEXT_MIMES = new Set(['application/json']);
+const PDF_MIME = 'application/pdf';
 
 async function documentContent(id: Types.ObjectId): Promise<SourceContent | null> {
   const doc = await DocumentModel.findById(id).lean();
@@ -87,14 +94,28 @@ async function meetingContent(id: Types.ObjectId): Promise<SourceContent | null>
   return { workspaceId: meeting.workspaceId, projectId: meeting.projectId, channelId: null, title: meeting.title, pieces };
 }
 
-/** Text-like files only (`text/*`, JSON). PDFs are skipped: no PDF parser is bundled. */
+/** Text from a PDF, or '' when it has no text layer (e.g. a scan) or cannot be parsed. */
+export async function extractPdfText(buffer: Buffer): Promise<string> {
+  try {
+    // An exact copy: pooled Buffers have a non-zero byteOffset, which this pdf.js build ignores.
+    const result = await pdfParse(new Uint8Array(buffer) as Buffer, { max: MAX_PDF_PAGES });
+    return result.text;
+  } catch (err) {
+    logger.warn({ err }, 'PDF text extraction failed');
+    return '';
+  }
+}
+
+/** Text-like files (`text/*`, JSON) and PDFs with a text layer. Other files are not indexed. */
 async function fileContent(id: Types.ObjectId): Promise<SourceContent | null> {
   const file = await FileModel.findById(id).lean();
   if (!file || file.deletedAt) return null;
-  if (!file.mimeType.startsWith('text/') && !TEXT_MIMES.has(file.mimeType)) return null;
-  const buffer = await readStoredFile(file, MAX_FILE_BYTES);
+  const isPdf = file.mimeType === PDF_MIME;
+  if (!isPdf && !file.mimeType.startsWith('text/') && !TEXT_MIMES.has(file.mimeType)) return null;
+  const buffer = await readStoredFile(file, isPdf ? MAX_PDF_BYTES : MAX_TEXT_FILE_BYTES);
   if (!buffer) return null;
-  const text = buffer.toString('utf8').replaceAll('\u0000', '').trim();
+  const raw = isPdf ? await extractPdfText(buffer) : buffer.toString('utf8');
+  const text = raw.replaceAll('\u0000', '').slice(0, MAX_FILE_TEXT_CHARS).trim();
   if (!text) return null;
   return { workspaceId: file.workspaceId, projectId: file.projectId, channelId: file.channelId, title: file.name, pieces: chunkText(text) };
 }
@@ -296,7 +317,7 @@ async function vectorCandidates(filter: FilterQuery<IChunk>, input: RetrieveInpu
     const pipeline: PipelineStage[] = [
       {
         $vectorSearch: {
-          index: 'nexus_chunks_vector',
+          index: VECTOR_INDEX_NAME,
           path: 'embedding',
           queryVector: vector,
           numCandidates: CANDIDATES * 10,

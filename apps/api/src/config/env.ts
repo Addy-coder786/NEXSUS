@@ -29,6 +29,8 @@ export const envSchema = z.object({
   AI_DAILY_LIMIT: z.coerce.number().int().positive().default(500),
   VOYAGE_API_KEY: z.string().optional(),
   VOYAGE_MODEL: z.string().default('voyage-3.5'),
+  /** Embedding size; sent to Voyage as output_dimension and used for the Atlas index. */
+  VOYAGE_DIMENSIONS: z.coerce.number().int().positive().optional(),
   /** 'atlas' uses $vectorSearch (index name nexus_chunks_vector); 'local' scores in-process. */
   VECTOR_SEARCH: z.enum(['atlas', 'local']).default('local'),
   SENTRY_DSN: z.string().optional(),

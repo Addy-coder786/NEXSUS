@@ -13,6 +13,7 @@ import {
 } from '@nexus/shared';
 import { env, features } from '../../config/env';
 import { logger } from '../../config/logger';
+import { captureError } from '../../config/sentry';
 import { getAuthUser, getMemberRole, getProjectContext, getWorkspaceContext } from '../../middleware/authorize';
 import { typedQuery } from '../../middleware/validate';
 import { enqueue } from '../../jobs';
@@ -109,6 +110,7 @@ export const sendMessage = asyncHandler(async (req, res) => {
     // Headers are already sent, so failures outside the model loop (e.g. a database error)
     // become a stream event instead of reaching the JSON error handler.
     logger.error({ err }, 'Assistant turn failed');
+    captureError(err, { conversationId: String(conversation._id) });
     emit({ type: 'error', code: 'INTERNAL_ERROR', message: 'Something went wrong' });
   } finally {
     clearInterval(heartbeat);

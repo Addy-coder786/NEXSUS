@@ -4,11 +4,15 @@ import { connectDb, disconnectDb } from './config/db';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { closeRedis } from './config/redis';
+import { closeSentry, captureError, initSentry } from './config/sentry';
 import { startJobs, stopJobs } from './jobs';
+import { ensureVectorIndex } from './modules/rag/vectorIndex';
 import { initSockets } from './sockets';
 
 async function main() {
+  initSentry();
   await connectDb();
+  await ensureVectorIndex();
   const app = createApp();
   const server = http.createServer(app);
   initSockets(server);
@@ -21,14 +25,17 @@ async function main() {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutting down');
     server.close(async () => {
-      await Promise.allSettled([stopJobs(), disconnectDb(), closeRedis()]);
+      await Promise.allSettled([stopJobs(), disconnectDb(), closeRedis(), closeSentry()]);
       process.exit(0);
     });
     setTimeout(() => process.exit(1), 10_000).unref();
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
-  process.on('unhandledRejection', (reason) => logger.error({ reason }, 'Unhandled rejection'));
+  process.on('unhandledRejection', (reason) => {
+    logger.error({ reason }, 'Unhandled rejection');
+    captureError(reason, { kind: 'unhandledRejection' });
+  });
 }
 
 main().catch((err) => {

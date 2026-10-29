@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import { ERROR_CODES, type ApiErrorBody } from '@nexus/shared';
 import { isProd } from '../config/env';
 import { logger } from '../config/logger';
+import { captureError } from '../config/sentry';
 import { ApiError } from '../utils/ApiError';
 
 export const notFoundHandler: RequestHandler = (req, _res, next) => {
@@ -45,6 +46,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
 
   if (apiErr.status >= 500) {
     logger.error({ err, reqId: req.id, path: req.path }, 'Unhandled error');
+    captureError(err, { reqId: req.id, method: req.method, route: req.route?.path ?? req.path });
   } else if (apiErr.status !== 404) {
     logger.debug({ code: apiErr.code, path: req.path }, apiErr.message);
   }

@@ -1,10 +1,12 @@
 import './rag.env';
 import type { ChannelDto, DocumentDto, ProjectDto, TaskDto, WorkspaceDto, WorkspaceRole } from '@nexus/shared';
+import { env } from '../src/config/env';
 import { Chunk } from '../src/models/Chunk';
+import { ensureVectorIndex, vectorIndexDefinition } from '../src/modules/rag/vectorIndex';
 import { WorkspaceMember } from '../src/models/WorkspaceMember';
 import { CHUNK_MAX_CHARS, chunkText } from '../src/modules/rag/chunking';
 import { setEmbedder, type Embedder } from '../src/modules/rag/embeddings';
-import { indexSource, reindexWorkspace, retrieve } from '../src/modules/rag/rag.service';
+import { extractPdfText, indexSource, reindexWorkspace, retrieve } from '../src/modules/rag/rag.service';
 import { api, createTestUser, type TestUser } from './helpers';
 
 // ---------- deterministic fake embeddings: hashed bag of words ----------
@@ -190,5 +192,62 @@ describe('retrieve', () => {
     });
     const items = await retrieve({ ...as(f.owner, 'OWNER', f), query: 'ingress controller' });
     expect(items.map((i) => i.sourceId)).toEqual([doc.id]);
+  });
+});
+
+// ---------- PDFs ----------
+
+/** A minimal one-page PDF with a text layer (offsets in the xref table are computed). */
+function makePdf(text: string): Buffer {
+  const stream = `BT /F1 18 Tf 72 720 Td (${text}) Tj ET`;
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let body = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((obj, i) => {
+    offsets.push(body.length);
+    body += `${i + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+  const xref = body.length;
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  body += offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('');
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(body, 'latin1');
+}
+
+describe('PDF indexing', () => {
+  it('extracts text from uploaded PDFs and ignores unreadable ones', async () => {
+    expect(await extractPdfText(makePdf('Quarterly roadmap for the billing team'))).toContain('Quarterly roadmap for the billing team');
+    expect(await extractPdfText(Buffer.from('%PDF-1.4 not really a pdf'))).toBe('');
+
+    const f = await fixture();
+    const upload = await api()
+      .post(`/api/workspaces/${f.ws.id}/files`)
+      .set('Cookie', f.owner.cookie)
+      .attach('file', makePdf('Incident postmortem for the payments outage'), { filename: 'postmortem.pdf', contentType: 'application/pdf' });
+    expect(upload.status).toBe(201);
+    await indexSource('file', upload.body.data.id);
+    const chunk = await Chunk.findOne({ sourceType: 'file', sourceId: upload.body.data.id }).lean();
+    expect(chunk?.text).toContain('Incident postmortem for the payments outage');
+    expect(chunk?.title).toBe('postmortem.pdf');
+  });
+});
+
+describe('Atlas vector index', () => {
+  it('builds the index definition and never throws where Atlas Search is unavailable', async () => {
+    expect(vectorIndexDefinition(512).fields[0]).toEqual({ type: 'vector', path: 'embedding', numDimensions: 512, similarity: 'cosine' });
+    const previous = env.VECTOR_SEARCH;
+    env.VECTOR_SEARCH = 'atlas';
+    try {
+      // mongodb-memory-server has no Atlas Search: the call logs a warning and resolves.
+      await expect(ensureVectorIndex()).resolves.toBeUndefined();
+    } finally {
+      env.VECTOR_SEARCH = previous;
+    }
   });
 });

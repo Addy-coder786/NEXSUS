@@ -2,6 +2,7 @@ import { Queue, Worker, type Job } from 'bullmq';
 import Redis from 'ioredis';
 import { env, features, isTest } from '../config/env';
 import { logger } from '../config/logger';
+import { captureError } from '../config/sentry';
 
 /**
  * Background jobs. With REDIS_URL set, BullMQ runs a single queue ("nexus") and dispatches by
@@ -69,7 +70,10 @@ export async function enqueue<K extends JobName>(name: K, data: JobPayloads[K], 
     });
     return;
   }
-  const exec = () => run(name, data).catch((err) => logger.error({ err, name }, 'In-process job failed'));
+  const exec = () => run(name, data).catch((err) => {
+    logger.error({ err, name }, 'In-process job failed');
+    captureError(err, { job: name });
+  });
   if (opts.delayMs) setTimeout(exec, opts.delayMs).unref();
   else setImmediate(exec);
 }
@@ -81,7 +85,10 @@ export async function scheduleRepeating<K extends JobName>(name: K, data: JobPay
     await queue.add(name, data, { repeat: { every: everyMs }, jobId: `repeat:${name}`, removeOnComplete: 50, removeOnFail: 100 });
     return;
   }
-  const t = setInterval(() => void run(name, data).catch((err) => logger.error({ err, name }, 'Repeating job failed')), everyMs);
+  const t = setInterval(() => void run(name, data).catch((err) => {
+    logger.error({ err, name }, 'Repeating job failed');
+    captureError(err, { job: name });
+  }), everyMs);
   t.unref();
   timers.push(t);
 }
@@ -96,7 +103,10 @@ export async function startJobs(): Promise<void> {
       async (job) => run(job.name as JobName, job.data as JobPayloads[JobName], job),
       { connection: connection.duplicate(), concurrency: 5 },
     );
-    worker.on('failed', (job, err) => logger.error({ err, name: job?.name, id: job?.id }, 'Job failed'));
+    worker.on('failed', (job, err) => {
+      logger.error({ err, name: job?.name, id: job?.id }, 'Job failed');
+      captureError(err, { job: job?.name, jobId: job?.id });
+    });
     logger.info('BullMQ worker started');
   } else {
     logger.info('REDIS_URL not set: running background jobs in-process');

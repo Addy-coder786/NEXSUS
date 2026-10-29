@@ -21,7 +21,12 @@ const voyageEmbedder: Embedder = async (texts, inputType) => {
     const res = await fetch(VOYAGE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.VOYAGE_API_KEY}` },
-      body: JSON.stringify({ input: batch, model: env.VOYAGE_MODEL, input_type: inputType }),
+      body: JSON.stringify({
+        input: batch,
+        model: env.VOYAGE_MODEL,
+        input_type: inputType,
+        ...(env.VOYAGE_DIMENSIONS ? { output_dimension: env.VOYAGE_DIMENSIONS } : {}),
+      }),
     });
     if (!res.ok) throw new Error(`Voyage embeddings failed with status ${res.status}`);
     const body = (await res.json()) as VoyageResponse;
