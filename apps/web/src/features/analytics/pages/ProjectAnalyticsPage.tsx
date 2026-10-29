@@ -9,6 +9,7 @@ import { useProjectContext } from '@/features/projects/pages/ProjectLayout';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useCan } from '@/lib/permissions';
 import { formatRelative } from '@/lib/format';
+import { ProjectInsightsCard } from '@/features/ai/components/ProjectInsightsCard';
 
 export function ProjectAnalyticsPage() {
   const project = useProjectContext();
@@ -41,6 +42,7 @@ export function ProjectAnalyticsPage() {
           </p>
         ) : null}
         <StatTiles summary={data?.summary} />
+        <ProjectInsightsCard projectId={project.id} workspaceId={project.workspaceId} />
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
           <HealthCard health={data?.health} avgCycleTimeDays={data?.avgCycleTimeDays} />
           <VelocityChart velocity={data?.velocity} weeks={weeks} loading={refreshing} />

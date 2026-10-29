@@ -1,7 +1,7 @@
 import mongoose, { Schema, type HydratedDocument, type Model, type Types } from 'mongoose';
 import { NOTIFICATION_TYPES, type NotificationType } from '@nexus/shared';
 
-export type NotificationEntityType = 'task' | 'project' | 'comment' | 'message' | 'document' | 'file' | 'workspace';
+export type NotificationEntityType = 'task' | 'project' | 'comment' | 'message' | 'document' | 'file' | 'workspace' | 'meeting';
 
 export interface INotification {
   userId: Types.ObjectId;

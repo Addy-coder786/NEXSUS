@@ -8,7 +8,7 @@ export const activityQuerySchema = paginationQuerySchema.extend({
 });
 export type ActivityQuery = z.infer<typeof activityQuerySchema>;
 
-export type ActivityTargetType = 'task' | 'project' | 'workspace' | 'comment' | 'member';
+export type ActivityTargetType = 'task' | 'project' | 'workspace' | 'comment' | 'member' | 'meeting';
 
 export interface ActivityDto {
   id: string;

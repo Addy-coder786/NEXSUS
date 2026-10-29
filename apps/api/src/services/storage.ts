@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
 import { env, features } from '../config/env';
@@ -249,5 +249,32 @@ export async function deleteFile(storageKey: string, provider: StorageProvider):
     await getCloudinary().uploader.destroy(publicId, { resource_type: resourceType });
   } catch (err) {
     logger.warn({ err, storageKey, provider }, 'Failed to delete stored file');
+  }
+}
+
+/**
+ * Reads a stored file's bytes (local disk or the provider URL), or null when it is missing or
+ * larger than `maxBytes`. Never throws. Used for text extraction (RAG indexing).
+ */
+export async function readStoredFile(
+  file: { storageKey: string; provider: StorageProvider; url: string; size: number },
+  maxBytes: number,
+): Promise<Buffer | null> {
+  if (file.size > maxBytes) return null;
+  try {
+    if (file.provider === 'local') {
+      const root = uploadsRoot();
+      const target = path.resolve(root, file.storageKey);
+      if (!isInside(root, target)) return null;
+      if ((await stat(target)).size > maxBytes) return null;
+      return await readFile(target);
+    }
+    const res = await fetch(file.url);
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return buffer.length > maxBytes ? null : buffer;
+  } catch (err) {
+    logger.warn({ err, storageKey: file.storageKey }, 'Failed to read stored file');
+    return null;
   }
 }

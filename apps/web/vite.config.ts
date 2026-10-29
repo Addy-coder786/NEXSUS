@@ -25,6 +25,7 @@ export default defineConfig({
           query: ['@tanstack/react-query', 'axios', 'zustand'],
           dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
           forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
+          markdown: ['react-markdown', 'remark-gfm'],
         },
       },
     },

@@ -1,10 +1,62 @@
+# Full stack: web (nginx, http://localhost:8080) + api + MongoDB + Redis.
+#   cp .env.example .env   # fill in the secrets
+#   docker compose up --build
+# For local development with `npm run dev`, start only the databases:
+#   docker compose up -d mongo redis
 services:
   mongo:
     image: mongo:7
     ports: ["27017:27017"]
     volumes: [mongo-data:/data/db]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # The browser reaches the API through the web container's proxy.
+      API_URL: ${PUBLIC_URL:-http://localhost:8080}
+      CLIENT_URL: ${PUBLIC_URL:-http://localhost:8080}
+      MONGODB_URI: mongodb://mongo:27017/nexus
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
+      EMAIL_FROM: ${EMAIL_FROM:-NEXUS <noreply@localhost>}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+      SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    volumes: [uploads:/app/apps/api/uploads]
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    depends_on: [api]
+    ports: ["8080:80"]
+
 volumes:
   mongo-data:
+  uploads:

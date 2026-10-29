@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
+export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   API_URL: z.string().url().default('http://localhost:4000'),
@@ -32,21 +32,44 @@ const envSchema = z.object({
   /** 'atlas' uses $vectorSearch (index name nexus_chunks_vector); 'local' scores in-process. */
   VECTOR_SEARCH: z.enum(['atlas', 'local']).default('local'),
   SENTRY_DSN: z.string().optional(),
+  /** Bearer token for GET /api/metrics; the endpoint is disabled (404) when unset. */
+  METRICS_TOKEN: z.string().min(16).optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
 });
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/** Production refuses to start with settings that are only safe in development. */
+export function productionChecks(e: z.infer<typeof envSchema>, ctx: z.RefinementCtx): void {
+  if (e.NODE_ENV !== 'production') return;
+  if (!e.ENCRYPTION_KEY) ctx.addIssue({ code: 'custom', path: ['ENCRYPTION_KEY'], message: 'required in production' });
+  // https is required except for a local deployment (docker compose on localhost).
+  const client = new URL(e.CLIENT_URL);
+  if (client.protocol !== 'https:' && !LOCAL_HOSTS.has(client.hostname)) {
+    ctx.addIssue({ code: 'custom', path: ['CLIENT_URL'], message: 'must use https in production' });
+  }
+  for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+    if (e[key].startsWith('change-me')) ctx.addIssue({ code: 'custom', path: [key], message: 'replace the example secret' });
+  }
+  if (e.JWT_ACCESS_SECRET === e.JWT_REFRESH_SECRET) {
+    ctx.addIssue({ code: 'custom', path: ['JWT_REFRESH_SECRET'], message: 'must differ from JWT_ACCESS_SECRET' });
+  }
+}
+
 function loadEnv() {
   const isTest = process.env.NODE_ENV === 'test';
+  // `KEY=` (empty) means unset, as docker compose passes optional variables that way.
+  const present = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== ''));
   const source = isTest
     ? {
-        ...process.env,
+        ...present,
         JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET ?? 'test-access-secret-test-access-secret-0000',
         JWT_REFRESH_SECRET:
           process.env.JWT_REFRESH_SECRET ?? 'test-refresh-secret-test-refresh-secret-0000',
       }
-    : process.env;
+    : present;
 
-  const parsed = envSchema.safeParse(source);
+  const parsed = envSchema.superRefine(productionChecks).safeParse(source);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n');
     throw new Error(`Invalid environment configuration:\n${issues}`);

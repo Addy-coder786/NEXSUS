@@ -20,9 +20,9 @@ Project analytics ← Progress tracked ← Tasks assigned ←──────�
 |---|---|---|
 | 1. Foundation | Auth and sessions, workspaces, roles, projects, tasks, Kanban, comments, activity log | ✅ Done |
 | 2. Collaboration | Real-time updates, chat, notifications, documents, files, search, analytics, Slack integration | ✅ Done |
-| 3. Intelligence and production | AI assistant, AI task generation, meeting intelligence, RAG, Docker, CI/CD, end-to-end tests, deployment | 🚧 In progress (contracts and scaffolding in place) |
+| 3. Intelligence and production | AI assistant, AI task generation, meeting intelligence, RAG, insights, Docker, CI, health and metrics | ✅ Done (Playwright end-to-end tests still to come) |
 
-Test suites: 186 API tests and 81 web tests, all passing. Strict TypeScript and ESLint are clean
+Test suites: 228 API tests and 85 web tests, all passing. Strict TypeScript and ESLint are clean
 across the repository.
 
 ## Features
@@ -69,15 +69,20 @@ across the repository.
 - Mirror Slack channels into NEXUS, with history backfill and live updates through the Events API.
 - Post NEXUS notifications to a chosen Slack channel.
 
-### AI (Phase 3, in progress)
+### AI
 - A workspace assistant built on the Claude API that uses tools to search tasks, documents,
-  messages, workload and activity, while respecting each user's permissions.
+  messages, workload and activity, while respecting each user's permissions. Answers stream over
+  Server-Sent Events, cite their sources, and are available on a full page or in a side panel on any screen.
 - AI task generation from text, documents or chat threads, with an editable review step before
   anything is created.
 - Meeting intelligence that turns a transcript into a summary, decisions, action items with owners,
   and tasks.
 - Document summaries, project insights and a weekly workspace digest.
 - A RAG pipeline with chunking, Voyage embeddings, and Atlas Vector Search or a local fallback.
+  Content is indexed as it changes, and retrieval combines vector and keyword ranking.
+  Without embeddings, retrieval falls back to keyword search.
+- Guardrails: a per-workspace daily request limit, token usage logged per call, server-side
+  refusal fallbacks, and workspace content wrapped as data so instructions inside it are ignored.
 
 ## Tech stack
 
@@ -115,6 +120,7 @@ docs/
   API.md            Phase 1 API contract
   API-phase2.md     Phase 2 API contract (real-time, chat, documents, files, search, analytics, Slack)
   API-phase3.md     Phase 3 API contract (AI, RAG, production)
+  DEPLOYMENT.md     Docker, configuration, health checks, metrics and scaling
   slack-manifest.json  Slack app manifest
 ```
 
@@ -162,6 +168,13 @@ npm run db:local   # optional: a local MongoDB with no Docker or install needed 
 npm run dev        # API on http://localhost:4000, web on http://localhost:5173
 ```
 
+To run the whole stack in containers (web, API, MongoDB and Redis), copy `.env.example` to `.env`,
+fill in the secrets and run `docker compose up --build`. The app is then on http://localhost:8080.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for configuration, health checks and scaling.
+
+To enable AI, set `ANTHROPIC_API_KEY` in `apps/api/.env`. You can also set `VOYAGE_API_KEY` for
+semantic search.
+
 Without the optional services, the app degrades gracefully:
 
 | Service | When it isn't configured |
@@ -171,7 +184,8 @@ Without the optional services, the app degrades gracefully:
 | Redis | An in-memory cache is used, and jobs run in-process |
 | Google or Slack OAuth | The sign-in buttons are hidden |
 | Slack integration | Settings shows "not configured" |
-| Anthropic API key | AI features show a setup notice |
+| Anthropic API key | AI endpoints return 503 and the AI UI is hidden or shows a setup notice |
+| Voyage API key | Retrieval uses keyword search instead of embeddings |
 
 ### Slack setup
 1. Create an app at <https://api.slack.com/apps?new_app=1>, choose **From a manifest**, and paste
@@ -209,5 +223,6 @@ Without the optional services, the app degrades gracefully:
 
 - [x] Phase 1: foundation, authentication, workspaces, roles, projects, tasks, Kanban
 - [x] Phase 2: real-time, chat, notifications, documents, files, search, analytics, Slack
-- [ ] Phase 3: AI assistant, task generation, meeting intelligence, insights, RAG
-- [ ] Phase 3: Docker, GitHub Actions CI, Playwright end-to-end tests, monitoring, production deployment
+- [x] Phase 3: AI assistant, task generation, meeting intelligence, insights, RAG
+- [x] Phase 3: Docker, GitHub Actions CI, health checks and Prometheus metrics
+- [ ] Playwright end-to-end tests, Sentry error reporting, PDF text extraction for RAG

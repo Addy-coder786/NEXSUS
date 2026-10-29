@@ -8,8 +8,10 @@ import { randomUUID } from 'node:crypto';
 import { env, features, isTest } from './config/env';
 import { logger } from './config/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { metricsMiddleware } from './middleware/metrics';
 import { apiLimiter } from './middleware/rateLimit';
 import { apiRouter } from './routes';
+import { healthRoutes } from './routes/health';
 import './jobs/register';
 
 export function createApp() {
@@ -37,13 +39,14 @@ export function createApp() {
   );
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
+  app.use(metricsMiddleware);
 
   if (!isTest) {
     app.use(
       pinoHttp({
         logger,
         genReqId: (req) => (req.headers['x-request-id'] as string) ?? randomUUID(),
-        autoLogging: { ignore: (req) => req.url === '/api/health' },
+        autoLogging: { ignore: (req) => req.url?.startsWith('/api/health') === true || req.url === '/api/metrics' },
       }),
     );
   }
@@ -53,9 +56,8 @@ export function createApp() {
     app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads'), { maxAge: '7d' }));
   }
 
-  app.get('/api/health', (_req, res) => {
-    res.json({ success: true, data: { status: 'ok', env: env.NODE_ENV, time: new Date().toISOString() } });
-  });
+  // Probes and metrics are not rate limited.
+  app.use('/api', healthRoutes);
 
   app.use('/api', apiLimiter, apiRouter);
 

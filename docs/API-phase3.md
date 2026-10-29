@@ -95,9 +95,16 @@ Model `Meeting`: workspaceId, projectId|null, title, occurredAt, transcript, att
 
 `ai.listeners.ts`: invalidate the project insight cache on `task.*` for that project; nothing else.
 
-## Production engineering (summary — see docs/DEPLOYMENT.md once written)
+## Production engineering (details in docs/DEPLOYMENT.md)
 
 - Dockerfiles for api (multi-stage, non-root, `node dist/server.js`) and web (build → nginx serving `dist` with SPA fallback and `/api` + `/socket.io` proxy), root `docker-compose.yml` for api + web + mongo + redis.
-- GitHub Actions: install → lint → typecheck → API tests → web tests → build; Playwright e2e job against a started stack.
-- Readiness `GET /api/health/ready` (Mongo ping + Redis ping when configured) alongside the existing liveness `/api/health`. Optional Sentry via `SENTRY_DSN`. Prometheus-style `GET /api/metrics` guarded by `METRICS_TOKEN`.
+- GitHub Actions: install → lint → typecheck → API tests → web tests → build, then Docker image builds. The Playwright e2e job is not written yet.
+- Readiness `GET /api/health/ready` (Mongo ping + Redis ping when configured) alongside the existing liveness `/api/health`. `SENTRY_DSN` is accepted by the config but not wired yet (no SDK installed). Prometheus-style `GET /api/metrics` guarded by `METRICS_TOKEN`.
 - Redis-backed rate limiting store when Redis is configured; production checks in env (secure cookies, `ENCRYPTION_KEY` required, `CLIENT_URL` https).
+
+## Implementation notes
+
+- Files: only `text/*` and `application/json` uploads (up to 1 MB) are indexed; PDFs are skipped because no PDF parser is bundled.
+- `POST /meetings/:id/convert` converts into the meeting's own project when it has one (400 otherwise). Converting an item twice returns 409.
+- Meeting creation also indexes the transcript immediately, so it is searchable before (or without) analysis.
+- Assistant tools use strict schemas. `eager_input_streaming` is off because tool inputs are small and strict validation is kept server-side; inputs are still re-validated before running.

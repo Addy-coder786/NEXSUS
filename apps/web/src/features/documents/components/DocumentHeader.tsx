@@ -16,6 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { SimpleTooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { DocumentSummaryButton } from '@/features/ai/components/DocumentSummaryButton';
 
 /** Small curated emoji set; the schema allows up to 8 chars. */
 export const DOCUMENT_ICONS = [
@@ -64,6 +65,7 @@ export function DocumentHeader({
         </Button>
         <span className="ml-auto flex items-center gap-2">
           <SaveIndicator status={status} />
+          <DocumentSummaryButton document={doc} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label="Document actions">

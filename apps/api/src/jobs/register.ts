@@ -11,3 +11,4 @@ import '../modules/integrations/slack/slack.listeners';
 import '../modules/analytics/deadline.job';
 import '../modules/ai/ai.listeners';
 import '../modules/rag/rag.listeners';
+import '../modules/meetings/meeting.service';

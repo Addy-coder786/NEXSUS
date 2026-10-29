@@ -212,6 +212,7 @@ export const convertActionItemsSchema = z.object({
   actionItemIds: z.array(z.string().min(1)).min(1).max(50),
   projectId: objectIdSchema,
 });
+export type ConvertActionItemsInput = z.infer<typeof convertActionItemsSchema>;
 
 // ---------- summaries & insights ----------
 

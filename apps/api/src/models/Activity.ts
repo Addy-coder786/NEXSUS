@@ -33,6 +33,7 @@ const ACTIVITY_TARGET_TYPES: ActivityTargetType[] = [
   'workspace',
   'comment',
   'member',
+  'meeting',
 ];
 
 const targetSchema = new Schema<IActivityTarget>(

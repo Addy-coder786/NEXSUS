@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import type { TaskStatus } from '@nexus/shared';
 import { useProjectContext } from './ProjectLayout';
 import { useMoveTask, useTasks } from '@/features/tasks/hooks';
@@ -11,12 +11,16 @@ import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePermissions } from '@/lib/permissions';
+import { GenerateTasksDialog } from '@/features/ai/components/GenerateTasksDialog';
+import { useAiEnabled } from '@/features/ai/hooks';
 
 export function ProjectBoardPage() {
   const project = useProjectContext();
   const { can } = usePermissions();
   const canEdit = can('task:update');
   const canCreate = can('task:create');
+  const canGenerate = useAiEnabled() && can('ai:generate') && canCreate;
+  const [generating, setGenerating] = useState(false);
   const { filters, selectedTaskId, openTask, closeTask } = useTaskFilters();
   const tasks = useTasks(project.id, { ...filters, parentTaskId: 'none', limit: 500, sort: 'position', order: 'asc' });
   const move = useMoveTask(project.id);
@@ -28,9 +32,16 @@ export function ProjectBoardPage() {
         project={project}
         trailing={
           canCreate ? (
-            <Button size="sm" onClick={() => setCreate({ open: true, status: 'TODO' })}>
-              <Plus /> New task
-            </Button>
+            <div className="flex items-center gap-2">
+              {canGenerate ? (
+                <Button size="sm" variant="outline" onClick={() => setGenerating(true)}>
+                  <Sparkles /> Generate with AI
+                </Button>
+              ) : null}
+              <Button size="sm" onClick={() => setCreate({ open: true, status: 'TODO' })}>
+                <Plus /> New task
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -66,6 +77,7 @@ export function ProjectBoardPage() {
         onOpenChange={(open) => setCreate((s) => ({ ...s, open }))}
         onCreated={openTask}
       />
+      <GenerateTasksDialog open={generating} onOpenChange={setGenerating} workspaceId={project.workspaceId} projectId={project.id} />
     </>
   );
 }

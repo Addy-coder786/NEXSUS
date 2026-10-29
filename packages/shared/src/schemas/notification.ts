@@ -18,7 +18,7 @@ export interface NotificationDto {
   /** Client route to open, e.g. /w/:ws/projects/:p/board?task=:id */
   link: string | null;
   actor: UserPublicDto | null;
-  entity: { type: 'task' | 'project' | 'comment' | 'message' | 'document' | 'file' | 'workspace'; id: string } | null;
+  entity: { type: 'task' | 'project' | 'comment' | 'message' | 'document' | 'file' | 'workspace' | 'meeting'; id: string } | null;
   readAt: string | null;
   createdAt: string;
 }

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
 import { ActivityFeed } from '@/features/activity/components/ActivityFeed';
+import { WorkspaceDigestCard } from '@/features/ai/components/WorkspaceDigestCard';
 import { useCan } from '@/lib/permissions';
 import { humanize } from '@/lib/utils';
 import { formatDate } from '@/lib/format';
@@ -87,6 +88,8 @@ export function WorkspaceDashboardPage() {
           )}
         </section>
 
+        <div className="min-w-0 space-y-6">
+          <WorkspaceDigestCard workspaceId={workspaceId} />
         {canViewActivity ? (
           <section aria-labelledby="activity-heading" className="min-w-0">
             <h2 id="activity-heading" className="mb-3 text-sm font-semibold">
@@ -103,6 +106,7 @@ export function WorkspaceDashboardPage() {
             </Card>
           </section>
         ) : null}
+        </div>
       </div>
       <CreateProjectDialog workspaceId={workspaceId} open={createOpen} onOpenChange={setCreateOpen} />
     </div>
