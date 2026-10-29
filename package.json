@@ -12,12 +12,14 @@
     "build": "npm run build -w @nexus/shared && npm run build -w @nexus/api && npm run build -w @nexus/web",
     "test": "npm run test -w @nexus/api && npm run test -w @nexus/web",
     "lint": "eslint .",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p e2e/tsconfig.json",
     "format": "prettier --write .",
-    "db:local": "npm run db:local -w @nexus/api"
+    "db:local": "npm run db:local -w @nexus/api",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.64.1",
     "concurrently": "^9.0.0",
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^9.0.0",

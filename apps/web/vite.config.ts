@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath, URL } from 'node:url';
 
+const apiTarget = process.env.VITE_PROXY_TARGET ?? 'http://localhost:4000';
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -10,9 +12,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // VITE_PROXY_TARGET lets e2e runs point the dev server at their own API instance.
     proxy: {
-      '/api': { target: 'http://localhost:4000', changeOrigin: false },
-      '/uploads': { target: 'http://localhost:4000', changeOrigin: false },
+      '/api': { target: apiTarget, changeOrigin: false },
+      '/uploads': { target: apiTarget, changeOrigin: false },
+      '/socket.io': { target: apiTarget, changeOrigin: false, ws: true },
     },
   },
   build: {

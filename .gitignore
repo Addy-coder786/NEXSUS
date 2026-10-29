@@ -11,3 +11,7 @@ uploads/
 .turbo/
 playwright-report/
 .mongo-data/
+
+# e2e
+e2e/.stack.json
+test-results/

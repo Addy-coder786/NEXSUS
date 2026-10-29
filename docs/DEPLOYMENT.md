@@ -62,12 +62,17 @@ See `apps/api/.env.example` for every variable. These ones matter in production:
 None of these endpoints are rate limited. Logs are JSON (pino) on stdout, with a request id taken
 from `X-Request-Id` when present.
 
-Not yet wired: `SENTRY_DSN` is accepted by the config, but no Sentry SDK is installed.
+Set `SENTRY_DSN` to report unexpected errors to Sentry: 5xx responses, failed background jobs,
+assistant turns that crash and unhandled rejections. Only errors are sent (no tracing), and
+request data, cookies, user info and AI prompts or outputs are never collected.
 
 ## MongoDB Atlas Vector Search (optional)
 
-With `VECTOR_SEARCH=atlas`, create a vector index named `nexus_chunks_vector` on the `chunks`
-collection. Set `numDimensions` to match your `VOYAGE_MODEL` (1024 for `voyage-3.5`):
+With `VECTOR_SEARCH=atlas`, the API creates a vector index named `nexus_chunks_vector` on the
+`chunks` collection at startup if it is missing (Atlas builds it in the background). If the
+database user lacks permission, the API logs a warning and you can create it in the Atlas UI with
+this definition. `numDimensions` comes from `VOYAGE_DIMENSIONS` (default 1024, the size for
+`voyage-3.5`):
 
 ```json
 {
@@ -80,8 +85,8 @@ collection. Set `numDimensions` to match your `VOYAGE_MODEL` (1024 for `voyage-3
 }
 ```
 
-After enabling embeddings, rebuild the index for existing content with
-`POST /api/ai/workspaces/:id/reindex` (OWNER or ADMIN).
+After enabling embeddings, rebuild the index for existing content from **Settings → AI →
+Rebuild search index** (OWNER or ADMIN), or with `POST /api/ai/workspaces/:id/reindex`.
 
 ## Scaling
 
@@ -95,5 +100,10 @@ After enabling embeddings, rebuild the index for existing content with
 ## CI
 
 `.github/workflows/ci.yml` runs lint, typecheck, the API tests (Jest against in-memory MongoDB),
-the web tests (Vitest) and production builds, then builds both Docker images. Playwright
-end-to-end tests are still on the roadmap.
+the web tests (Vitest) and production builds. It then runs the Playwright end-to-end suite and
+builds both Docker images.
+
+The e2e suite (`npm run test:e2e`) starts its own stack: an in-memory MongoDB, a mock of the
+Anthropic Messages API (`e2e/mock-anthropic.mjs`), the API pointed at the mock through
+`ANTHROPIC_BASE_URL`, and the Vite dev server. So AI flows run through the real SDK, streaming
+and tool loop without an API key or cost. Run `npx playwright install chromium` once first.

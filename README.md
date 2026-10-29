@@ -20,9 +20,9 @@ Project analytics ← Progress tracked ← Tasks assigned ←──────�
 |---|---|---|
 | 1. Foundation | Auth and sessions, workspaces, roles, projects, tasks, Kanban, comments, activity log | ✅ Done |
 | 2. Collaboration | Real-time updates, chat, notifications, documents, files, search, analytics, Slack integration | ✅ Done |
-| 3. Intelligence and production | AI assistant, AI task generation, meeting intelligence, RAG, insights, Docker, CI, health and metrics | ✅ Done (Playwright end-to-end tests still to come) |
+| 3. Intelligence and production | AI assistant, AI task generation, meeting intelligence, RAG, insights, Docker, CI, health and metrics | ✅ Done |
 
-Test suites: 228 API tests and 85 web tests, all passing. Strict TypeScript and ESLint are clean
+Test suites: 231 API tests, 88 web tests and 6 Playwright end-to-end tests, all passing. Strict TypeScript and ESLint are clean
 across the repository.
 
 ## Features
@@ -201,6 +201,7 @@ Without the optional services, the app degrades gracefully:
 | `npm run dev` | Runs the API and web app together |
 | `npm run db:local` | Starts a persistent local MongoDB on port 27017 |
 | `npm test` | Runs the API (Jest) and web (Vitest) test suites |
+| `npm run test:e2e` | Runs the Playwright end-to-end suite against a self-started stack with a mock Anthropic API (run `npx playwright install chromium` once first) |
 | `npm run typecheck` | Runs strict TypeScript across all workspaces |
 | `npm run lint` | Runs ESLint across the repository |
 | `npm run build` | Creates production builds |
@@ -225,4 +226,5 @@ Without the optional services, the app degrades gracefully:
 - [x] Phase 2: real-time, chat, notifications, documents, files, search, analytics, Slack
 - [x] Phase 3: AI assistant, task generation, meeting intelligence, insights, RAG
 - [x] Phase 3: Docker, GitHub Actions CI, health checks and Prometheus metrics
-- [ ] Playwright end-to-end tests, Sentry error reporting, PDF text extraction for RAG
+- [x] Phase 3: Playwright end-to-end tests, Sentry error reporting, PDF text extraction for RAG, AI usage view
+- [ ] Production deployment to a hosting provider

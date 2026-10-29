@@ -76,7 +76,9 @@ export function CreateWorkspaceForm({
   const onSubmit = handleSubmit((values) => {
     const payload: CreateWorkspaceInput = {
       name: values.name,
-      slug: values.slug ? values.slug : undefined,
+      // An auto-filled slug is only a suggestion: leave it to the server, which appends -2, -3...
+      // when it is taken. A slug the user typed is sent and must be free.
+      slug: values.slug && formState.dirtyFields.slug ? values.slug : undefined,
       description: values.description ? values.description : undefined,
     };
     create.mutate(payload, {

@@ -10,31 +10,30 @@ export const authKeys = {
   sessions: () => [...authKeys.all, 'sessions'] as const,
 };
 
+/** The in-flight bootstrap request, shared so StrictMode's double effect sends only one. */
+let bootstrapping: Promise<void> | null = null;
+
 /** Loads the current user once on app start. 401 (after a failed refresh) resolves to `anon`. */
 export function useBootstrapAuth(): void {
   const status = useAuthStore((s) => s.status);
-  const setStatus = useAuthStore((s) => s.setStatus);
-  const setUser = useAuthStore((s) => s.setUser);
-  const clear = useAuthStore((s) => s.clear);
 
   useEffect(() => {
-    if (status !== 'idle') return;
+    if (status !== 'idle' || bootstrapping) return;
+    const { setStatus, setUser, clear } = useAuthStore.getState();
     setStatus('loading');
-    let cancelled = false;
-    authApi
+    // The result always lands in the global store. It must not be tied to this effect's
+    // lifetime: setting `loading` re-runs the effect, and a cleanup-based cancel would drop
+    // the response and leave the app on its loading screen.
+    bootstrapping = authApi
       .me()
-      .then((user) => {
-        if (!cancelled) setUser(user);
-      })
-      .catch(() => {
-        // 401 (after a failed refresh), network errors and server errors all resolve to `anon`
-        // so the app stays usable: the guard sends the visitor to the login page.
-        if (!cancelled) clear();
+      .then(setUser)
+      // 401 (after a failed refresh), network errors and server errors all resolve to `anon`
+      // so the app stays usable: the guard sends the visitor to the login page.
+      .catch(() => clear())
+      .finally(() => {
+        bootstrapping = null;
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [status, setStatus, setUser, clear]);
+  }, [status]);
 }
 
 export function useLogin() {

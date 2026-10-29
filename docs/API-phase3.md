@@ -32,7 +32,7 @@ When `features.ai` is false, every `/ai/*` and meeting-analysis endpoint returns
 
 Model `Chunk` (`apps/api/src/models/Chunk.ts`): `{ workspaceId, projectId|null, sourceType: 'document'|'message'|'task'|'meeting'|'file', sourceId, channelId|null (messages), title, text, ordinal, tokenEstimate, embedding: number[] | null, embeddingModel|null, contentHash, updatedAt }`. Indexes: `{ workspaceId, sourceType, sourceId }`, text index on `text`+`title`, unique `{ sourceType, sourceId, ordinal }`.
 
-- Chunking: documents by heading/paragraph boundaries, ~800 tokens (≈3200 chars) with 15 % overlap; tasks = one chunk (title + description + checklist + key); messages = one chunk per top-level message with thread replies appended (skip < 20 chars); meetings = transcript chunks + one analysis chunk; files = PDF/text extraction only for `text/*`, `application/json`, and PDFs (via `pdf-parse` if added; otherwise skip PDFs and note it).
+- Chunking: documents by heading/paragraph boundaries, ~800 tokens (≈3200 chars) with 15 % overlap; tasks = one chunk (title + description + checklist + key); messages = one chunk per top-level message with thread replies appended (skip < 20 chars); meetings = transcript chunks + one analysis chunk; files = PDF/text extraction only for `text/*`, `application/json`, and PDFs (via `pdf-parse`; scanned PDFs without a text layer yield nothing).
 - Indexing is event-driven (`modules/rag/rag.listeners.ts`): `task.created/updated`, `document.updated`, `message.created/updated`, `file.uploaded`, `meeting analyzed` → `enqueue('rag.index', …)`; deletes → `rag.remove`. `contentHash` skips unchanged content. Embeddings batched (≤ 128 inputs/request). In tests, embeddings are mocked.
 - `retrieve({ workspaceId, userId, query, projectId?, limit })` returns ranked chunks **filtered by what the user may see** (project access via `hasProjectAccess`, channel access via `canAccessChannel` rules, workspace membership). Hybrid when embeddings exist: vector score + keyword score with reciprocal-rank fusion.
 - `POST /ai/workspaces/:workspaceId/reindex` (OWNER/ADMIN) → 202, enqueues `rag.reindexWorkspace`.
@@ -98,13 +98,14 @@ Model `Meeting`: workspaceId, projectId|null, title, occurredAt, transcript, att
 ## Production engineering (details in docs/DEPLOYMENT.md)
 
 - Dockerfiles for api (multi-stage, non-root, `node dist/server.js`) and web (build → nginx serving `dist` with SPA fallback and `/api` + `/socket.io` proxy), root `docker-compose.yml` for api + web + mongo + redis.
-- GitHub Actions: install → lint → typecheck → API tests → web tests → build, then Docker image builds. The Playwright e2e job is not written yet.
-- Readiness `GET /api/health/ready` (Mongo ping + Redis ping when configured) alongside the existing liveness `/api/health`. `SENTRY_DSN` is accepted by the config but not wired yet (no SDK installed). Prometheus-style `GET /api/metrics` guarded by `METRICS_TOKEN`.
+- GitHub Actions: install → lint → typecheck → API tests → web tests → build, then Docker image builds. Then Playwright e2e against a started stack with a mock Anthropic API.
+- Readiness `GET /api/health/ready` (Mongo ping + Redis ping when configured) alongside the existing liveness `/api/health`. Optional Sentry via `SENTRY_DSN` (errors only, no request or AI data). Prometheus-style `GET /api/metrics` guarded by `METRICS_TOKEN`.
 - Redis-backed rate limiting store when Redis is configured; production checks in env (secure cookies, `ENCRYPTION_KEY` required, `CLIENT_URL` https).
 
 ## Implementation notes
 
-- Files: only `text/*` and `application/json` uploads (up to 1 MB) are indexed; PDFs are skipped because no PDF parser is bundled.
+- Files: `text/*` and `application/json` uploads (up to 1 MB) and PDFs (up to 25 MB and 300 pages) are indexed. Extracted text is capped at 400k characters per file.
+- `GET /ai/workspaces/:id/usage?days=30` (OWNER/ADMIN) returns `AiUsageDto`: per-feature and per-day token totals from `AiUsage`, plus today's quota use.
 - `POST /meetings/:id/convert` converts into the meeting's own project when it has one (400 otherwise). Converting an item twice returns 409.
 - Meeting creation also indexes the transcript immediately, so it is searchable before (or without) analysis.
 - Assistant tools use strict schemas. `eager_input_streaming` is off because tool inputs are small and strict validation is kept server-side; inputs are still re-validated before running.
